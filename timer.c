@@ -40,7 +40,7 @@ void timer(pthread_t *thread, thread_arg *arg)
 int main()
 {
     queue *fifo;
-    pthread_t pro, con;
+    pthread_t pro, con1, con2;
 
     fifo = queueInit();
     if (fifo == NULL)
@@ -56,11 +56,14 @@ int main()
 
     timer(&pro, &arg);
 
-    pthread_create(&con, NULL, consumer, fifo);
+    pthread_create(&con1, NULL, consumer, fifo);
+    pthread_create(&con2, NULL, consumer, fifo);
+
     pthread_join(pro, NULL);
     finished = 1;
-    pthread_cond_signal(fifo->notEmpty);
-    pthread_join(con, NULL);
+    pthread_cond_broadcast(fifo->notEmpty);
+    pthread_join(con1, NULL);
+    pthread_join(con2, NULL);
     queueDelete(fifo);
 
     return 0;
@@ -106,6 +109,7 @@ void *consumer(void *q)
         {
             if (finished)
             {
+                pthread_mutex_unlock(fifo->mut);
                 pthread_exit(NULL);
             }
             printf("consumer: queue EMPTY.\n");

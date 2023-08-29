@@ -5,6 +5,7 @@
 
 #define QUEUESIZE 10
 #define LOOP 20
+#define CONSUMERS 10
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -40,7 +41,8 @@ void timer(pthread_t *thread, thread_arg *arg)
 int main()
 {
     queue *fifo;
-    pthread_t pro, con1, con2;
+    pthread_t pro;
+    pthread_t con[CONSUMERS];
 
     fifo = queueInit();
     if (fifo == NULL)
@@ -56,14 +58,15 @@ int main()
 
     timer(&pro, &arg);
 
-    pthread_create(&con1, NULL, consumer, fifo);
-    pthread_create(&con2, NULL, consumer, fifo);
+    for (int i = 0; i < CONSUMERS; i++)
+        pthread_create(&con[i], NULL, consumer, fifo);
 
     pthread_join(pro, NULL);
     finished = 1;
     pthread_cond_broadcast(fifo->notEmpty);
-    pthread_join(con1, NULL);
-    pthread_join(con2, NULL);
+
+    for (int i = 0; i < CONSUMERS; i++)
+        pthread_join(con[i], NULL);
     queueDelete(fifo);
 
     return 0;

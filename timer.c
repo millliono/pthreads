@@ -11,19 +11,21 @@ void *consumer(void *args);
 
 typedef struct
 {
-  int buf[QUEUESIZE];
-  long head, tail;
-  int full, empty;
-  pthread_mutex_t *mut;
-  pthread_cond_t *notFull, *notEmpty;
+    int buf[QUEUESIZE];
+    long head, tail;
+    int full, empty;
+    pthread_mutex_t *mut;
+    pthread_cond_t *notFull, *notEmpty;
 } queue;
 
 typedef struct
 {
-  queue *fifo;
-  int tasksToExecute;
-  int period;
+    queue *fifo;
+    int tasksToExecute;
+    int period;
 } thread_arg;
+
+int finished = 0;
 
 queue *queueInit(void);
 void queueDelete(queue *q);
@@ -32,141 +34,147 @@ void queueDel(queue *q, int *out);
 
 void timer(pthread_t *thread, thread_arg *arg)
 {
-  pthread_create(thread, NULL, producer, arg);
+    pthread_create(thread, NULL, producer, arg);
 }
 
 int main()
 {
-  queue *fifo;
-  pthread_t pro, con;
+    queue *fifo;
+    pthread_t pro, con;
 
-  fifo = queueInit();
-  if (fifo == NULL)
-  {
-    fprintf(stderr, "main: Queue Init failed.\n");
-    exit(1);
-  }
+    fifo = queueInit();
+    if (fifo == NULL)
+    {
+        fprintf(stderr, "main: Queue Init failed.\n");
+        exit(1);
+    }
 
-  thread_arg arg;
-  arg.fifo = fifo;
-  arg.tasksToExecute = LOOP;
-  arg.period = 1000000;
+    thread_arg arg;
+    arg.fifo = fifo;
+    arg.tasksToExecute = LOOP;
+    arg.period = 100000;
 
-  timer(&pro, &arg);
+    timer(&pro, &arg);
 
-  pthread_create(&con, NULL, consumer, fifo);
-  pthread_join(pro, NULL);
-  pthread_join(con, NULL);
-  queueDelete(fifo);
+    pthread_create(&con, NULL, consumer, fifo);
+    pthread_join(pro, NULL);
+    finished = 1;
+    pthread_cond_signal(fifo->notEmpty);
+    pthread_join(con, NULL);
+    queueDelete(fifo);
 
-  return 0;
+    return 0;
 }
 
 void *producer(void *q)
 {
-  thread_arg *arg;
-  int i;
+    thread_arg *arg;
+    int i;
 
-  arg = (thread_arg *)q;
-  queue *fifo = arg->fifo;
-  int tasksToExecute = arg->tasksToExecute;
-  int period = arg->period;
+    arg = (thread_arg *)q;
+    queue *fifo = arg->fifo;
+    int tasksToExecute = arg->tasksToExecute;
+    int period = arg->period;
 
-  for (i = 0; i < tasksToExecute; i++)
-  {
-    usleep(period);
-    pthread_mutex_lock(fifo->mut);
-    while (fifo->full)
+    for (i = 0; i < tasksToExecute; i++)
     {
-      printf("producer: queue FULL.\n");
-      pthread_cond_wait(fifo->notFull, fifo->mut);
+        usleep(period);
+        pthread_mutex_lock(fifo->mut);
+        while (fifo->full)
+        {
+            printf("producer: queue FULL.\n");
+            pthread_cond_wait(fifo->notFull, fifo->mut);
+        }
+        queueAdd(fifo, i);
+        pthread_mutex_unlock(fifo->mut);
+        pthread_cond_signal(fifo->notEmpty);
     }
-    queueAdd(fifo, i);
-    pthread_mutex_unlock(fifo->mut);
-    pthread_cond_signal(fifo->notEmpty);
-  }
-  pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 void *consumer(void *q)
 {
-  queue *fifo;
-  int i, d;
+    queue *fifo;
+    int i, d;
 
-  fifo = (queue *)q;
+    fifo = (queue *)q;
 
-  for (i = 0; i < LOOP; i++)
-  {
-    pthread_mutex_lock(fifo->mut);
-    while (fifo->empty)
+    while (1)
     {
-      printf("consumer: queue EMPTY.\n");
-      pthread_cond_wait(fifo->notEmpty, fifo->mut);
+        pthread_mutex_lock(fifo->mut);
+        while (fifo->empty)
+        {
+            if (finished)
+            {
+                pthread_exit(NULL);
+            }
+            printf("consumer: queue EMPTY.\n");
+            pthread_cond_wait(fifo->notEmpty, fifo->mut);
+        }
+        queueDel(fifo, &d);
+        pthread_mutex_unlock(fifo->mut);
+        pthread_cond_signal(fifo->notFull);
+        printf("consumer: received %d.\n", d);
     }
-    queueDel(fifo, &d);
-    pthread_mutex_unlock(fifo->mut);
-    pthread_cond_signal(fifo->notFull);
-    printf("consumer: received %d.\n", d);
-  }
-  pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 queue *queueInit(void)
 {
-  queue *q;
+    queue *q;
 
-  q = (queue *)malloc(sizeof(queue));
-  if (q == NULL)
-    return (NULL);
+    q = (queue *)malloc(sizeof(queue));
+    if (q == NULL)
+        return (NULL);
 
-  q->empty = 1;
-  q->full = 0;
-  q->head = 0;
-  q->tail = 0;
-  q->mut = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(q->mut, NULL);
-  q->notFull = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(q->notFull, NULL);
-  q->notEmpty = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(q->notEmpty, NULL);
+    q->empty = 1;
+    q->full = 0;
+    q->head = 0;
+    q->tail = 0;
+    q->mut = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(q->mut, NULL);
+    q->notFull = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+    pthread_cond_init(q->notFull, NULL);
+    q->notEmpty = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+    pthread_cond_init(q->notEmpty, NULL);
 
-  return (q);
+    return (q);
 }
 
 void queueDelete(queue *q)
 {
-  pthread_mutex_destroy(q->mut);
-  free(q->mut);
-  pthread_cond_destroy(q->notFull);
-  free(q->notFull);
-  pthread_cond_destroy(q->notEmpty);
-  free(q->notEmpty);
-  free(q);
+    pthread_mutex_destroy(q->mut);
+    free(q->mut);
+    pthread_cond_destroy(q->notFull);
+    free(q->notFull);
+    pthread_cond_destroy(q->notEmpty);
+    free(q->notEmpty);
+    free(q);
 }
 
 void queueAdd(queue *q, int in)
 {
-  q->buf[q->tail] = in;
-  q->tail++;
-  if (q->tail == QUEUESIZE)
-    q->tail = 0;
-  if (q->tail == q->head)
-    q->full = 1;
-  q->empty = 0;
+    q->buf[q->tail] = in;
+    q->tail++;
+    if (q->tail == QUEUESIZE)
+        q->tail = 0;
+    if (q->tail == q->head)
+        q->full = 1;
+    q->empty = 0;
 
-  return;
+    return;
 }
 
 void queueDel(queue *q, int *out)
 {
-  *out = q->buf[q->head];
+    *out = q->buf[q->head];
 
-  q->head++;
-  if (q->head == QUEUESIZE)
-    q->head = 0;
-  if (q->head == q->tail)
-    q->empty = 1;
-  q->full = 0;
+    q->head++;
+    if (q->head == QUEUESIZE)
+        q->head = 0;
+    if (q->head == q->tail)
+        q->empty = 1;
+    q->full = 0;
 
-  return;
+    return;
 }

@@ -88,7 +88,7 @@ void *producer(void *q)
     char fname1[20], fname2[20];
     snprintf(fname1, sizeof(fname1), "dtAdd_%ld.txt", (long)pthread_self());
     fp1 = fopen(fname1, "w");
-    snprintf(fname2, sizeof(fname2), "dtWaste_%ld.txt", (long)pthread_self());
+    snprintf(fname2, sizeof(fname2), "dtProdWaste_%ld.txt", (long)pthread_self());
     fp2 = fopen(fname2, "w");
 
     // time dtAdd, dtWaste

@@ -113,6 +113,7 @@ void *producer(void *q)
 
         fprintf(fp, "%ld\n", dtAdd);
     }
+    fclose(fp);
     pthread_exit(NULL);
 }
 

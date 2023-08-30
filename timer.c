@@ -83,19 +83,28 @@ void *producer(void *q)
     int tasksToExecute = arg->tasksToExecute;
     int period = arg->period;
 
-    // create file to save dtAdd
-    FILE *fp;
-    char filename[20];
-    snprintf(filename, sizeof(filename), "prodAdd_%ld.txt", (long)pthread_self());
-    fp = fopen(filename, "w");
+    // create files to save dtAdd, dtWaste
+    FILE *fp1, *fp2;
+    char fname1[20], fname2[20];
+    snprintf(fname1, sizeof(fname1), "dtAdd_%ld.txt", (long)pthread_self());
+    fp1 = fopen(fname1, "w");
+    snprintf(fname2, sizeof(fname2), "dtWaste_%ld.txt", (long)pthread_self());
+    fp2 = fopen(fname2, "w");
 
-    // time queueAdd()
-    long dtAdd;
+    // time dtAdd, dtWaste
+    long dtAdd, dtWaste;
     struct timeval queueAddCurrTime, queueAddPrevTime;
+    struct timeval wasteCurrTime, wastePrevTime;
 
+    gettimeofday(&wastePrevTime, NULL);
+    gettimeofday(&queueAddCurrTime, NULL);
     for (i = 0; i < tasksToExecute; i++)
     {
-        usleep(period);
+        gettimeofday(&wasteCurrTime, NULL);
+        dtWaste = (wasteCurrTime.tv_sec - wastePrevTime.tv_sec) * 1000000 + (wasteCurrTime.tv_usec - wastePrevTime.tv_usec);
+        usleep(period); // sleep
+        gettimeofday(&wastePrevTime, NULL);
+
         pthread_mutex_lock(fifo->mut);
         while (fifo->full)
         {
@@ -111,9 +120,11 @@ void *producer(void *q)
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
 
-        fprintf(fp, "%ld\n", dtAdd);
+        fprintf(fp1, "%ld\n", dtAdd);
+        fprintf(fp2, "%ld\n", dtWaste);
     }
-    fclose(fp);
+    fclose(fp1);
+    fclose(fp2);
     pthread_exit(NULL);
 }
 

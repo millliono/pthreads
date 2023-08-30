@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #define QUEUESIZE 10
 #define LOOP 20
@@ -58,7 +59,7 @@ int main()
 
     for (int i = 0; i < CONSUMERS; i++)
         pthread_create(&con[i], NULL, consumer, fifo);
-    
+
     timer(&pro, &arg);
 
     pthread_join(pro, NULL);
@@ -82,6 +83,16 @@ void *producer(void *q)
     int tasksToExecute = arg->tasksToExecute;
     int period = arg->period;
 
+    // create file to save dtAdd
+    FILE *fp;
+    char filename[20];
+    snprintf(filename, sizeof(filename), "prodAdd_%ld.txt", (long)pthread_self());
+    fp = fopen(filename, "w");
+
+    // time queueAdd()
+    long dtAdd;
+    struct timeval queueAddCurrTime, queueAddPrevTime;
+
     for (i = 0; i < tasksToExecute; i++)
     {
         usleep(period);
@@ -91,9 +102,16 @@ void *producer(void *q)
             printf("producer: queue FULL.\n");
             pthread_cond_wait(fifo->notFull, fifo->mut);
         }
+        // time queueAdd()
+        queueAddPrevTime = queueAddCurrTime;
+        gettimeofday(&queueAddCurrTime, NULL);
+        dtAdd = (queueAddCurrTime.tv_sec - queueAddPrevTime.tv_sec) * 1000000 + (queueAddCurrTime.tv_usec - queueAddPrevTime.tv_usec);
+
         queueAdd(fifo, i);
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
+
+        fprintf(fp, "%ld\n", dtAdd);
     }
     pthread_exit(NULL);
 }

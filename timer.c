@@ -56,10 +56,10 @@ int main()
     arg.tasksToExecute = LOOP;
     arg.period = 100000;
 
-    timer(&pro, &arg);
-
     for (int i = 0; i < CONSUMERS; i++)
         pthread_create(&con[i], NULL, consumer, fifo);
+    
+    timer(&pro, &arg);
 
     pthread_join(pro, NULL);
     finished = 1;

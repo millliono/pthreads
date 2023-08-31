@@ -146,6 +146,11 @@ void *consumer(void *q)
 
     fifo = (queue *)q;
 
+    // time dtDel
+    long dtDel;
+    struct timeval queueDelCurrTime, queueDelPrevTime;
+
+    gettimeofday(&queueDelCurrTime, NULL);
     while (1)
     {
         pthread_mutex_lock(fifo->mut);
@@ -159,10 +164,19 @@ void *consumer(void *q)
             printf("consumer: queue EMPTY.\n");
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
         }
+        // time queueDel()
+        queueDelPrevTime = queueDelCurrTime;
+        gettimeofday(&queueDelCurrTime, NULL);
+        dtDel = (queueDelCurrTime.tv_sec - queueDelPrevTime.tv_sec) * 1000000 + (queueDelCurrTime.tv_usec - queueDelPrevTime.tv_usec);
         queueDel(fifo, &d);
+
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
         printf("consumer: received %d.\n", d);
+
+        pthread_mutex_lock(&mutexCons);
+        fprintf(fcons, "%ld\n", dtDel);
+        pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);
 }

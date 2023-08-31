@@ -92,7 +92,8 @@ void *producer(void *q)
     fp2 = fopen(fname2, "w");
 
     // time dtAdd, dtWaste
-    long dtAdd, dtWaste;
+    long dtAdd;
+    long dtWaste = 0;
     struct timeval queueAddCurrTime, queueAddPrevTime;
     struct timeval wasteCurrTime, wastePrevTime;
 
@@ -101,8 +102,8 @@ void *producer(void *q)
     for (i = 0; i < tasksToExecute; i++)
     {
         gettimeofday(&wasteCurrTime, NULL);
-        dtWaste = (wasteCurrTime.tv_sec - wastePrevTime.tv_sec) * 1000000 + (wasteCurrTime.tv_usec - wastePrevTime.tv_usec);
-        usleep(period); // sleep
+        // dtWaste = (wasteCurrTime.tv_sec - wastePrevTime.tv_sec) * 1000000 + (wasteCurrTime.tv_usec - wastePrevTime.tv_usec);
+        usleep(period - dtWaste); // sleep
         gettimeofday(&wastePrevTime, NULL);
 
         pthread_mutex_lock(fifo->mut);
@@ -115,8 +116,9 @@ void *producer(void *q)
         queueAddPrevTime = queueAddCurrTime;
         gettimeofday(&queueAddCurrTime, NULL);
         dtAdd = (queueAddCurrTime.tv_sec - queueAddPrevTime.tv_sec) * 1000000 + (queueAddCurrTime.tv_usec - queueAddPrevTime.tv_usec);
-
         queueAdd(fifo, i);
+
+        dtWaste = dtAdd - (period - dtWaste);
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
 

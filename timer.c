@@ -95,16 +95,11 @@ void *producer(void *q)
     long dtAdd;
     long dtWaste = 0;
     struct timeval queueAddCurrTime, queueAddPrevTime;
-    struct timeval wasteCurrTime, wastePrevTime;
 
-    gettimeofday(&wastePrevTime, NULL);
     gettimeofday(&queueAddCurrTime, NULL);
     for (i = 0; i < tasksToExecute; i++)
     {
-        gettimeofday(&wasteCurrTime, NULL);
-        // dtWaste = (wasteCurrTime.tv_sec - wastePrevTime.tv_sec) * 1000000 + (wasteCurrTime.tv_usec - wastePrevTime.tv_usec);
-        usleep(period - dtWaste); // sleep
-        gettimeofday(&wastePrevTime, NULL);
+        usleep(period - dtWaste); // fixes drift time
 
         pthread_mutex_lock(fifo->mut);
         while (fifo->full)

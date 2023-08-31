@@ -27,6 +27,8 @@ typedef struct
     int period;
 } thread_arg;
 
+pthread_mutex_t mutexProd, mutexCons;
+FILE *fprod, *fcons;
 int finished = 0;
 
 queue *queueInit(void);
@@ -57,6 +59,12 @@ int main()
     arg.tasksToExecute = LOOP;
     arg.period = 100000;
 
+    // initialize files and their mutexes
+    pthread_mutex_init(&mutexProd, NULL);
+    fprod = fopen("dtWasteProd", "w");
+    pthread_mutex_init(&mutexCons, NULL);
+    fcons = fopen("dtWasteCons", "w");
+
     for (int i = 0; i < CONSUMERS; i++)
         pthread_create(&con[i], NULL, consumer, fifo);
 
@@ -68,7 +76,13 @@ int main()
 
     for (int i = 0; i < CONSUMERS; i++)
         pthread_join(con[i], NULL);
+
     queueDelete(fifo);
+    // close files and destroy their mutexes
+    fclose(fprod);
+    fclose(fcons);
+    pthread_mutex_destroy(&mutexProd);
+    pthread_mutex_destroy(&mutexCons);
 
     return 0;
 }
@@ -84,17 +98,16 @@ void *producer(void *q)
     int period = arg->period;
 
     // create files to save dtAdd, dtWaste
-    FILE *fp1, *fp2;
-    char fname1[20], fname2[20];
+    FILE *fp1;
+    char fname1[20];
     snprintf(fname1, sizeof(fname1), "dtAdd_%ld.txt", (long)pthread_self());
     fp1 = fopen(fname1, "w");
-    snprintf(fname2, sizeof(fname2), "dtProdWaste_%ld.txt", (long)pthread_self());
-    fp2 = fopen(fname2, "w");
 
-    // time dtAdd, dtWaste
+    // time dtAdd
     long dtAdd;
-    long dtWaste = 0;
     struct timeval queueAddCurrTime, queueAddPrevTime;
+
+    long dtWaste = 0;
 
     gettimeofday(&queueAddCurrTime, NULL);
     for (i = 0; i < tasksToExecute; i++)
@@ -118,10 +131,11 @@ void *producer(void *q)
         pthread_cond_signal(fifo->notEmpty);
 
         fprintf(fp1, "%ld\n", dtAdd);
-        fprintf(fp2, "%ld\n", dtWaste);
+        pthread_mutex_lock(&mutexProd);
+        fprintf(fprod, "%ld\n", dtWaste);
+        pthread_mutex_unlock(&mutexProd);
     }
     fclose(fp1);
-    fclose(fp2);
     pthread_exit(NULL);
 }
 

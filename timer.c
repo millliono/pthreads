@@ -6,9 +6,9 @@
 #include <math.h>
 
 #define QUEUESIZE 10
-#define LOOP 200
-#define CONSUMERS 10
-#define PERIOD 10000
+#define LOOP 20
+#define CONSUMERS 5
+#define PERIOD 100000
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -153,6 +153,12 @@ void *consumer(void *q)
     long dtDel;
     struct timeval queueDelCurrTime, queueDelPrevTime;
 
+    // time TimerFcn
+    long dtTimerFcn = 0;
+    struct timeval TimerFcnStart, TimerFcnEnd;
+
+    long dtWaste = 0;
+
     gettimeofday(&queueDelCurrTime, NULL);
     while (1)
     {
@@ -176,10 +182,16 @@ void *consumer(void *q)
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
 
+        dtWaste = dtDel - dtTimerFcn;
+
+        gettimeofday(&TimerFcnStart, NULL);
         TimerFcn(d);
+        gettimeofday(&TimerFcnEnd, NULL);
+        dtTimerFcn = (TimerFcnEnd.tv_sec - TimerFcnStart.tv_sec) * 1000000 + (TimerFcnEnd.tv_usec - TimerFcnStart.tv_usec);
+        printf("dtTimerFcn %ld.\n", dtTimerFcn);
 
         pthread_mutex_lock(&mutexCons);
-        fprintf(fcons, "%ld\n", dtDel);
+        fprintf(fcons, "%ld\n", dtWaste);
         pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);
@@ -191,7 +203,6 @@ void TimerFcn(int d)
 
     int i;
     double result = 0.0;
-    printf("executing TimerFcn...\n");
     for (i = 0; i < 100000; i++)
     {
         result = result + sin(i) * tan(i);

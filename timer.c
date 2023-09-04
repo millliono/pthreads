@@ -6,9 +6,16 @@
 #include <math.h>
 
 #define QUEUESIZE 10
-#define LOOP 20
-#define CONSUMERS 5
-#define PERIOD 100000
+#define CONSUMERS 10
+
+#define LOOP1 20
+#define PERIOD1 1000000
+
+#define LOOP2 200
+#define PERIOD2 100000
+
+#define LOOP3 2000
+#define PERIOD3 10000
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -47,7 +54,7 @@ void timer(pthread_t *thread, thread_arg *arg)
 int main()
 {
     queue *fifo;
-    pthread_t pro;
+    pthread_t pro1, pro2, pro3;
     pthread_t con[CONSUMERS];
 
     fifo = queueInit();
@@ -57,10 +64,20 @@ int main()
         exit(1);
     }
 
-    thread_arg arg;
-    arg.fifo = fifo;
-    arg.tasksToExecute = LOOP;
-    arg.period = PERIOD;
+    thread_arg arg1;
+    arg1.fifo = fifo;
+    arg1.tasksToExecute = LOOP1;
+    arg1.period = PERIOD1;
+
+    thread_arg arg2;
+    arg2.fifo = fifo;
+    arg2.tasksToExecute = LOOP2;
+    arg2.period = PERIOD2;
+
+    thread_arg arg3;
+    arg3.fifo = fifo;
+    arg3.tasksToExecute = LOOP3;
+    arg3.period = PERIOD3;
 
     // initialize files and their mutexes
     pthread_mutex_init(&mutexProd, NULL);
@@ -71,9 +88,13 @@ int main()
     for (int i = 0; i < CONSUMERS; i++)
         pthread_create(&con[i], NULL, consumer, fifo);
 
-    timer(&pro, &arg);
+    timer(&pro1, &arg1);
+    timer(&pro2, &arg2);
+    timer(&pro3, &arg3);
 
-    pthread_join(pro, NULL);
+    pthread_join(pro1, NULL);
+    pthread_join(pro2, NULL);
+    pthread_join(pro3, NULL);
     finished = 1;
     pthread_cond_broadcast(fifo->notEmpty);
 
@@ -188,7 +209,6 @@ void *consumer(void *q)
         TimerFcn(d);
         gettimeofday(&TimerFcnEnd, NULL);
         dtTimerFcn = (TimerFcnEnd.tv_sec - TimerFcnStart.tv_sec) * 1000000 + (TimerFcnEnd.tv_usec - TimerFcnStart.tv_usec);
-        printf("dtTimerFcn %ld.\n", dtTimerFcn);
 
         pthread_mutex_lock(&mutexCons);
         fprintf(fcons, "%ld\n", dtWaste);

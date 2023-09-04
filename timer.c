@@ -3,10 +3,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
 
 #define QUEUESIZE 10
-#define LOOP 20
+#define LOOP 200
 #define CONSUMERS 10
+#define PERIOD 10000
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -35,6 +37,7 @@ queue *queueInit(void);
 void queueDelete(queue *q);
 void queueAdd(queue *q, int in);
 void queueDel(queue *q, int *out);
+void TimerFcn(int d);
 
 void timer(pthread_t *thread, thread_arg *arg)
 {
@@ -57,7 +60,7 @@ int main()
     thread_arg arg;
     arg.fifo = fifo;
     arg.tasksToExecute = LOOP;
-    arg.period = 100000;
+    arg.period = PERIOD;
 
     // initialize files and their mutexes
     pthread_mutex_init(&mutexProd, NULL);
@@ -172,13 +175,28 @@ void *consumer(void *q)
 
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
-        printf("consumer: received %d.\n", d);
+
+        TimerFcn(d);
 
         pthread_mutex_lock(&mutexCons);
         fprintf(fcons, "%ld\n", dtDel);
         pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);
+}
+
+void TimerFcn(int d)
+{
+    printf("consumer: received %d.\n", d);
+
+    int i;
+    double result = 0.0;
+    printf("executing TimerFcn...\n");
+    for (i = 0; i < 100000; i++)
+    {
+        result = result + sin(i) * tan(i);
+    }
+    return;
 }
 
 queue *queueInit(void)

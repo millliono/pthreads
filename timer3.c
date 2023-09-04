@@ -22,7 +22,7 @@ void *consumer(void *args);
 
 typedef struct
 {
-    int buf[QUEUESIZE];
+    struct timeval buf[QUEUESIZE];
     long head, tail;
     int full, empty;
     pthread_mutex_t *mut;
@@ -42,9 +42,9 @@ int finished = 0;
 
 queue *queueInit(void);
 void queueDelete(queue *q);
-void queueAdd(queue *q, int in);
-void queueDel(queue *q, int *out);
-void TimerFcn(int d);
+void queueAdd(queue *q, struct timeval in);
+void queueDel(queue *q, struct timeval *out);
+void TimerFcn();
 
 void timer(pthread_t *thread, thread_arg *arg)
 {
@@ -148,7 +148,7 @@ void *producer(void *q)
         queueAddPrevTime = queueAddCurrTime;
         gettimeofday(&queueAddCurrTime, NULL);
         dtAdd = (queueAddCurrTime.tv_sec - queueAddPrevTime.tv_sec) * 1000000 + (queueAddCurrTime.tv_usec - queueAddPrevTime.tv_usec);
-        queueAdd(fifo, i);
+        queueAdd(fifo, queueAddCurrTime);
 
         dtWaste = dtAdd - (period - dtWaste);
         pthread_mutex_unlock(fifo->mut);
@@ -166,21 +166,15 @@ void *producer(void *q)
 void *consumer(void *q)
 {
     queue *fifo;
-    int i, d;
+    int i;
+    struct timeval d;
 
     fifo = (queue *)q;
 
     // time dtDel
     long dtDel;
-    struct timeval queueDelCurrTime, queueDelPrevTime;
+    struct timeval queueDelCurrTime;
 
-    // time TimerFcn
-    long dtTimerFcn = 0;
-    struct timeval TimerFcnStart, TimerFcnEnd;
-
-    long dtWaste = 0;
-
-    gettimeofday(&queueDelCurrTime, NULL);
     while (1)
     {
         pthread_mutex_lock(fifo->mut);
@@ -195,31 +189,25 @@ void *consumer(void *q)
             pthread_cond_wait(fifo->notEmpty, fifo->mut);
         }
         // time queueDel()
-        queueDelPrevTime = queueDelCurrTime;
         gettimeofday(&queueDelCurrTime, NULL);
-        dtDel = (queueDelCurrTime.tv_sec - queueDelPrevTime.tv_sec) * 1000000 + (queueDelCurrTime.tv_usec - queueDelPrevTime.tv_usec);
         queueDel(fifo, &d);
+        dtDel = (queueDelCurrTime.tv_sec - d.tv_sec) * 1000000 + (queueDelCurrTime.tv_usec - d.tv_usec);
 
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notFull);
 
-        dtWaste = dtDel - dtTimerFcn;
-
-        gettimeofday(&TimerFcnStart, NULL);
-        TimerFcn(d);
-        gettimeofday(&TimerFcnEnd, NULL);
-        dtTimerFcn = (TimerFcnEnd.tv_sec - TimerFcnStart.tv_sec) * 1000000 + (TimerFcnEnd.tv_usec - TimerFcnStart.tv_usec);
+        TimerFcn();
 
         pthread_mutex_lock(&mutexCons);
-        fprintf(fcons, "%ld\n", dtWaste);
+        fprintf(fcons, "%ld\n", dtDel);
         pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);
 }
 
-void TimerFcn(int d)
+void TimerFcn()
 {
-    printf("consumer: received %d.\n", d);
+    printf("consumer: received.\n");
 
     int i;
     double result = 0.0;
@@ -263,7 +251,7 @@ void queueDelete(queue *q)
     free(q);
 }
 
-void queueAdd(queue *q, int in)
+void queueAdd(queue *q, struct timeval in)
 {
     q->buf[q->tail] = in;
     q->tail++;
@@ -276,7 +264,7 @@ void queueAdd(queue *q, int in)
     return;
 }
 
-void queueDel(queue *q, int *out)
+void queueDel(queue *q, struct timeval *out)
 {
     *out = q->buf[q->head];
 

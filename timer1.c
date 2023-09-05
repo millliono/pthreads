@@ -133,9 +133,9 @@ void *producer(void *q)
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
 
-        fprintf(fp1, "%ld\n", dtAdd);
+        fprintf(fp1, "%ld,", dtAdd);
         pthread_mutex_lock(&mutexProd);
-        fprintf(fprod, "%ld\n", dtWaste);
+        fprintf(fprod, "%ld,", dtWaste);
         pthread_mutex_unlock(&mutexProd);
     }
     fclose(fp1);
@@ -178,7 +178,7 @@ void *consumer(void *q)
         TimerFcn();
 
         pthread_mutex_lock(&mutexCons);
-        fprintf(fcons, "%ld\n", dtDel);
+        fprintf(fcons, "%ld,", dtDel);
         pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);

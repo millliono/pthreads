@@ -7,8 +7,8 @@
 
 #define QUEUESIZE 10
 #define CONSUMERS 10
-#define LOOP 20
-#define PERIOD 1000000
+#define LOOP 200
+#define PERIOD 100000
 
 void *producer(void *args);
 void *consumer(void *args);
@@ -133,9 +133,9 @@ void *producer(void *q)
         pthread_mutex_unlock(fifo->mut);
         pthread_cond_signal(fifo->notEmpty);
 
-        fprintf(fp1, "%ld,", dtAdd);
+        fprintf(fp1, "%ld\n", dtAdd);
         pthread_mutex_lock(&mutexProd);
-        fprintf(fprod, "%ld,", dtWaste);
+        fprintf(fprod, "%ld\n", dtWaste);
         pthread_mutex_unlock(&mutexProd);
     }
     fclose(fp1);
@@ -178,7 +178,7 @@ void *consumer(void *q)
         TimerFcn();
 
         pthread_mutex_lock(&mutexCons);
-        fprintf(fcons, "%ld,", dtDel);
+        fprintf(fcons, "%ld\n", dtDel);
         pthread_mutex_unlock(&mutexCons);
     }
     pthread_exit(NULL);
